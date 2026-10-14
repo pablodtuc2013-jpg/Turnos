@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Turnos online</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EEF2F3;--card:#fff;--ink:#14213D;--mute:#5b667a;--red:#A4243B;--blue:#1F4E9C;--line:#d3dcdf;--ok:#1d7a4d;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1726;--card:#18233A;--ink:#EAF0F6;--mute:#9AA8BD;--red:#E0566E;--blue:#6C9BE8;--line:#2B3A57;--ok:#52c58a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F1726;--card:#18233A;--ink:#EAF0F6;--mute:#9AA8BD;--red:#E0566E;--blue:#6C9BE8;--line:#2B3A57;--ok:#52c58a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "DM Sans",system-ui,sans-serif}
+.pole{height:12px;background:repeating-linear-gradient(-45deg,var(--red) 0 12px,#fff 12px 24px,var(--blue) 24px 36px)}
+.wrap{max-width:560px;margin:0 auto;padding:16px}
+h1{font:700 34px/1.05 Oswald,Impact,sans-serif;margin:12px 0 14px;letter-spacing:.5px}
+h2{font:500 20px Oswald,Impact,sans-serif;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.card.ok{border-color:var(--ok)}
+.svc{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px;margin-bottom:8px;border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font:500 16px inherit;text-align:left}
+.svc small{display:block;color:var(--mute);font-weight:400}
+.svc.on{border-color:var(--red);box-shadow:inset 4px 0 0 var(--red)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
+.chip{flex:0 0 auto;min-width:54px;padding:8px 6px;border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font:inherit}
+.chip small{display:block;color:var(--mute)}
+.chip b{font-size:20px}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.on small{color:var(--bg)}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.slot{padding:10px 0;border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font:500 15px inherit}
+.slot.on{background:var(--red);border-color:var(--red);color:#fff}
+input,select{width:100%;padding:12px;margin-bottom:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:16px inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.btn{width:100%;padding:13px;border:0;border-radius:8px;background:var(--red);color:#fff;font:700 16px inherit;margin-bottom:8px}
+.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.mute{color:var(--mute)}.small{font-size:13px}
+.err{color:var(--red);min-height:20px;margin:0 0 6px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.tm{font:700 20px Oswald,sans-serif;min-width:58px}
+.gr{flex:1;min-width:0}
+.mini{padding:8px 10px;border:1.5px solid var(--ink);border-radius:6px;background:transparent;color:var(--ink);font:700 13px inherit;text-decoration:none}
+.mini.dg{background:var(--red);border-color:var(--red);color:#fff}
+.add{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:10px}
+.add input,.add select{margin:0}.add .btn{grid-column:1/-1;margin:0}
+.lnk{word-break:break-all;font-weight:700}
+</style></head>
+<body>
+<div class="pole"></div>
+<div class="wrap">
+<h1 id="shop">Turnos</h1>
+<div id="app"><p class="mute">Cargando...</p></div>
+</div>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getFirestore,doc,getDoc,setDoc,updateDoc,collection,query,where,getDocs,onSnapshot,writeBatch}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app=initializeApp({apiKey:"AIzaSyBGt1j6l9GtwOSGwk49IOXRYHnflgJEaZI",authDomain:"turnos-barberia-8d7bb.firebaseapp.com",projectId:"turnos-barberia-8d7bb",storageBucket:"turnos-barberia-8d7bb.firebasestorage.app",messagingSenderId:"856372870878",appId:"1:856372870878:web:703895db1b14d29ecd0c4f"});
+const auth=getAuth(app),db=getFirestore(app);
+
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const dk=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const hm=m=>pad(Math.floor(m/60))+':'+pad(m%60);
+const money=n=>'$'+Number(n).toLocaleString('es-AR');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const lbl=k=>{const[y,m,d]=k.split('-');return new Date(y,m-1,d).toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})};
+const WD=['dom','lun','mar','mié','jue','vie','sáb'];
+const DAYS=[];for(let i=0;DAYS.length<8;i++){const x=new Date();x.setDate(x.getDate()+i);if(x.getDay()!==0)DAYS.push(x)}
+const DEF=[{id:'s1',n:'Corte clásico',d:30,p:8000},{id:'s2',n:'Corte y barba',d:60,p:12000},{id:'s3',n:'Barba',d:30,p:5000}];
+
+const P=new URLSearchParams(location.search);
+let N=P.get('n')||'',ADMIN=P.has('admin'),NEG=null,NF=false,USER=null,OC=new Set(),TUR=[],UN=null,F={},ERR='',cx=null,copied=false,done=null;
+let pd=dk(DAYS[0]),st={svc:null,day:dk(DAYS[0]),time:null};
+
+const fe=e=>{const c=e.code||'';return /invalid-credential|wrong-password|user-not-found/.test(c)?'Email o contraseña incorrectos.':c.includes('email-already')?'Ese email ya tiene cuenta. Tocá Entrar.':c.includes('weak')?'La contraseña necesita al menos 6 caracteres.':c.includes('invalid-email')?'Revisá el email.':c.includes('permission')?'No tenés permiso para esa acción.':'Algo falló. Probá de nuevo.'};
+const chips=(sel,a)=>'<div class="chips">'+DAYS.map(d=>`<button class="chip ${dk(d)===sel?'on':''}" data-${a}="${dk(d)}"><small>${WD[d.getDay()]}</small><b>${d.getDate()}</b></button>`).join('')+'</div>';
+function wa(b){let n=b.tel.replace(/\D/g,'').replace(/^0+/,'');if(!n.startsWith('54'))n='549'+n;
+return 'https://wa.me/'+n+'?text='+encodeURIComponent(`Hola ${b.name}, te esperamos el ${lbl(b.day)} a las ${hm(b.s)} hs en ${NEG.nombre} para ${b.svc}. Si no podés venir, avisanos así liberamos el turno.`)}
+function slots(day,dur){const now=new Date(),isT=day===dk(now),nm=now.getHours()*60+now.getMinutes(),out=[];
+for(let m=540;m+dur<=1200;m+=30){if(isT&&m<=nm)continue;let ok=1;for(let x=m;x<m+dur;x+=30)if(OC.has(x))ok=0;if(ok)out.push(m)}return out}
+async function loadOc(){const q=await getDocs(query(collection(db,'negocios',N,'ocupado'),where('day','==',st.day)));OC=new Set(q.docs.map(d=>d.data().m))}
+
+/* ---------- Vistas cliente ---------- */
+function viewR(){
+if(done){return `<section class="card ok"><h2>Turno confirmado</h2><p><b>${esc(done.svc)}</b><br>${lbl(done.day)}, ${hm(done.s)} hs</p><p class="mute">Te esperamos, ${esc(done.name)}. Si no podés venir, avisá con tiempo.</p><button class="btn" data-a="new">Reservar otro turno</button></section>`}
+const sv=NEG.servicios.find(x=>x.id===st.svc);
+let h=`<section class="card"><h2>1. Servicio</h2>`+NEG.servicios.map(x=>`<button class="svc ${x.id===st.svc?'on':''}" data-s="${esc(x.id)}"><span>${esc(x.n)}<small>${x.d} min</small></span><b>${money(x.p)}</b></button>`).join('')+`</section>`;
+if(sv){const sl=slots(st.day,sv.d);
+h+=`<section class="card"><h2>2. Día y horario</h2>${chips(st.day,'d')}`+(sl.length?`<div class="slots">${sl.map(m=>`<button class="slot ${m===st.time?'on':''}" data-t="${m}">${hm(m)}</button>`).join('')}</div>`:`<p class="mute">No quedan horarios este día. Probá con otro.</p>`)+`</section>`}
+if(sv&&st.time!==null){h+=`<section class="card"><h2>3. Tus datos</h2><input id="nm" placeholder="Nombre" autocomplete="name" value="${esc(F.nm)}"><input id="tel" type="tel" inputmode="tel" placeholder="WhatsApp (ej: 381 555 1234)" value="${esc(F.tel)}"><p class="err">${ERR}</p><button class="btn" data-a="book">Confirmar turno</button></section>`}
+return h}
+
+/* ---------- Vistas dueño ---------- */
+const viewLogin=()=>`<section class="card"><h2>Panel del dueño</h2><input id="em" type="email" placeholder="Email" autocomplete="email" value="${esc(F.em)}"><input id="pw" type="password" placeholder="Contraseña (mínimo 6)" value="${esc(F.pw)}"><p class="err">${ERR}</p><button class="btn" data-a="login">Entrar</button><button class="btn alt" data-a="signup">Crear cuenta nueva</button></section>`;
+const viewCreate=()=>`<section class="card"><h2>Creá tu negocio</h2><input id="nn" placeholder="Nombre (ej: Barbería Don Lucho)" value="${esc(F.nn)}"><input id="sl" placeholder="Nombre del link (ej: don-lucho)" value="${esc(F.sl)}"><p class="mute small">Solo letras minúsculas, números y guiones. Será parte del link que compartas con tus clientes.</p><p class="err">${ERR}</p><button class="btn" data-a="createneg">Crear negocio</button><button class="btn alt" data-a="logout">Cerrar sesión</button></section>`;
+function viewP(){
+const link=location.origin+location.pathname+'?n='+N,bs=[...TUR].sort((a,b)=>a.s-b.s);
+return `<section class="card"><h2>Link para tus clientes</h2><p class="lnk">${esc(link)}</p><button class="btn" data-a="copy">${copied?'Link copiado':'Copiar link'}</button><a class="btn alt" style="display:block;text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Reservá tu turno online: '+link)}">Compartir por WhatsApp</a></section>
+<section class="card"><h2>Agenda</h2>${chips(pd,'pd')}`+(bs.length?bs.map(b=>`<div class="row"><div class="tm">${hm(b.s)}</div><div class="gr"><b>${esc(b.name)}</b><br><span class="mute">${esc(b.svc)}, ${b.d} min</span></div><a class="mini" target="_blank" rel="noopener" href="${wa(b)}">Recordar</a><button class="mini ${cx===b.id?'dg':''}" data-x="${b.id}">${cx===b.id?'¿Seguro?':'Cancelar'}</button></div>`).join(''):`<p class="mute">No hay turnos para este día todavía.</p>`)+`</section>
+<section class="card"><h2>Servicios</h2>${NEG.servicios.map(x=>`<div class="row"><div class="gr"><b>${esc(x.n)}</b><br><span class="mute">${x.d} min, ${money(x.p)}</span></div><button class="mini" data-del="${esc(x.id)}">Quitar</button></div>`).join('')}
+<div class="add"><input id="sn" placeholder="Nombre"><select id="sd"><option value="30">30 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option></select><input id="sp" type="number" inputmode="numeric" placeholder="Precio"><button class="btn" data-a="add">Agregar servicio</button></div></section>
+<section class="card"><h2>Tu negocio</h2><input id="nombre" value="${esc(NEG.nombre)}"><p class="err">${ERR}</p><button class="btn alt" data-a="logout">Cerrar sesión</button></section>`}
+
+function render(){
+$('#shop').textContent=NEG?NEG.nombre:'Turnos';
+let h;
+if(ADMIN)h=!USER?viewLogin():NEG?viewP():viewCreate();
+else if(!N)h=`<section class="card"><h2>Turnos online</h2><p>Este link no tiene un negocio asociado.</p><p class="mute">Si sos dueño de una barbería o peluquería, entrá al panel.</p><a class="btn" style="display:block;text-align:center;text-decoration:none" href="?admin=1">Ir al panel del dueño</a></section>`;
+else if(NF)h=`<section class="card"><h2>No encontramos este negocio</h2><p class="mute">Revisá que el link esté completo.</p></section>`;
+else if(!NEG)h=`<p class="mute">Cargando...</p>`;
+else h=viewR();
+$('#app').innerHTML=h}
+
+/* ---------- Carga inicial ---------- */
+async function initClient(){try{const s=await getDoc(doc(db,'negocios',N));if(s.exists())NEG=s.data();else NF=true;if(NEG)await loadOc()}catch(e){NF=true}render()}
+function watch(){UN&&UN();UN=onSnapshot(query(collection(db,'negocios',N,'turnos'),where('day','==',pd)),s=>{TUR=s.docs.map(d=>({id:d.id,...d.data()}));render()})}
+async function initAdmin(){
+if(!USER){UN&&UN();NEG=null;render();return}
+try{const q=await getDocs(query(collection(db,'negocios'),where('owner','==',USER.uid)));
+if(q.empty){NEG=null;N=''}else{N=q.docs[0].id;NEG=q.docs[0].data();watch()}}catch(e){ERR=fe(e)}
+render()}
+if(ADMIN)onAuthStateChanged(auth,u=>{USER=u;initAdmin()});else if(N)initClient();else render();
+
+/* ---------- Acciones ---------- */
+const saveServ=()=>updateDoc(doc(db,'negocios',N),{servicios:NEG.servicios}).catch(e=>{ERR=fe(e)});
+document.addEventListener('click',async e=>{
+const t=e.target.closest('[data-s],[data-d],[data-t],[data-a],[data-pd],[data-x],[data-del]');if(!t)return;
+const d=t.dataset;ERR='';
+try{
+if(d.s){st.svc=d.s;st.time=null}
+else if(d.d){st.day=d.d;st.time=null;await loadOc()}
+else if(d.t){st.time=+d.t}
+else if(d.pd){pd=d.pd;cx=null;watch()}
+else if(d.x){if(cx===d.x){const b=TUR.find(z=>z.id===d.x),w=writeBatch(db);w.delete(doc(db,'negocios',N,'turnos',b.id));for(let m=b.s;m<b.s+b.d;m+=30)w.delete(doc(db,'negocios',N,'ocupado',b.day+'_'+m));await w.commit();cx=null}else cx=d.x}
+else if(d.del){NEG.servicios=NEG.servicios.filter(x=>x.id!==d.del);await saveServ()}
+else if(d.a==='new'){done=null;st={svc:null,day:dk(DAYS[0]),time:null};await loadOc()}
+else if(d.a==='add'){const n=$('#sn').value.trim(),m=+$('#sd').value,p=+$('#sp').value;if(n&&m>0&&p>=0){NEG.servicios.push({id:'s'+Date.now(),n,d:m,p});await saveServ()}}
+else if(d.a==='copy'){try{await navigator.clipboard.writeText(location.origin+location.pathname+'?n='+N);copied=true}catch(_){ERR='No se pudo copiar. Copialo a mano.'}}
+else if(d.a==='logout'){await signOut(auth);copied=false}
+else if(d.a==='login'||d.a==='signup'){await(d.a==='login'?signInWithEmailAndPassword:createUserWithEmailAndPassword)(auth,(F.em||'').trim(),F.pw||'')}
+else if(d.a==='createneg'){const slug=(F.sl||'').toLowerCase().trim(),nombre=(F.nn||'').trim();
+if(!nombre||!/^[a-z0-9-]{3,30}$/.test(slug))ERR='Poné un nombre y un link de 3 a 30 letras, números o guiones.';
+else{try{await setDoc(doc(db,'negocios',slug),{nombre,owner:USER.uid,servicios:DEF});await initAdmin();return}catch(_){ERR='Ese link ya está en uso. Probá con otro.'}}}
+else if(d.a==='book'){const sv=NEG.servicios.find(x=>x.id===st.svc),name=(F.nm||'').trim(),tel=(F.tel||'').trim();
+if(name.length<2)ERR='Escribí tu nombre.';
+else if(tel.replace(/\D/g,'').length<8)ERR='Ingresá un WhatsApp válido.';
+else{const w=writeBatch(db),tid=doc(collection(db,'negocios',N,'turnos')).id,b={day:st.day,s:st.time,d:sv.d,svc:sv.n,name,tel};
+w.set(doc(db,'negocios',N,'turnos',tid),b);
+for(let m=b.s;m<b.s+b.d;m+=30)w.set(doc(db,'negocios',N,'ocupado',b.day+'_'+m),{day:b.day,m});
+try{await w.commit();done=b}catch(_){ERR='Ese horario se ocupó. Elegí otro.';st.time=null;await loadOc()}}}
+}catch(er){ERR=fe(er)}
+render()});
+document.addEventListener('input',e=>{if(e.target.id)F[e.target.id]=e.target.value});
+document.addEventListener('change',async e=>{if(e.target.id==='nombre'&&NEG){const v=e.target.value.trim();if(v){NEG.nombre=v;$('#shop').textContent=v;try{await updateDoc(doc(db,'negocios',N),{nombre:v})}catch(er){ERR=fe(er);render()}}}});
+</script>
+</body></html>
